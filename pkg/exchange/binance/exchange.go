@@ -34,6 +34,7 @@ var log = logrus.WithFields(logrus.Fields{
 func init() {
 	_ = types.Exchange(&Exchange{})
 	_ = types.MarginExchange(&Exchange{})
+	_ = types.FuturesExchange(&Exchange{})
 
 	if ok, _ := strconv.ParseBool(os.Getenv("DEBUG_BINANCE_STREAM")); ok {
 		log.Level = logrus.DebugLevel
