@@ -4,6 +4,8 @@ import "github.com/c9s/bbgo/pkg/fixedpoint"
 
 type FuturesExchange interface {
 	UseFutures()
+	UseIsolatedFutures(symbol string)
+	GetFuturesSettings() FuturesSettings
 }
 
 type FuturesSettings struct {
