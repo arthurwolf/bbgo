@@ -3,8 +3,6 @@ package binance
 import (
 	"context"
 	"fmt"
-	"github.com/adshao/go-binance/v2/futures"
-	"golang.org/x/time/rate"
 	"net/http"
 	"os"
 	"strconv"
@@ -12,8 +10,10 @@ import (
 	"time"
 
 	"github.com/adshao/go-binance/v2"
+	"github.com/adshao/go-binance/v2/futures"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"golang.org/x/time/rate"
 
 	"github.com/sirupsen/logrus"
 
@@ -26,7 +26,6 @@ const BNB = "BNB"
 
 // 50 per 10 seconds = 5 per second
 var orderLimiter = rate.NewLimiter(5, 5)
-
 
 var log = logrus.WithFields(logrus.Fields{
 	"exchange": "binance",
@@ -45,20 +44,38 @@ type Exchange struct {
 	types.MarginSettings
 	types.FuturesSettings
 
-	key, secret string
-	Client      *binance.Client
+	key, secret   string
+	Client        *binance.Client // Spot & Margin
+	futuresClient *futures.Client // USDT-M Futures
+	// deliveryClient	*delivery.Client // Coin-M Futures
 }
 
 func New(key, secret string) *Exchange {
 	var client = binance.NewClient(key, secret)
 	client.HTTPClient = &http.Client{Timeout: 15 * time.Second}
-
 	_, _ = client.NewSetServerTimeService().Do(context.Background())
-	return &Exchange{
-		key:    key,
-		secret: secret,
 
-		Client: client,
+	var futuresClient = binance.NewFuturesClient(key, secret)
+	futuresClient.HTTPClient = &http.Client{Timeout: 15 * time.Second}
+	_, _ = futuresClient.NewSetServerTimeService().Do(context.Background())
+
+	var err error
+	_, err = client.NewSetServerTimeService().Do(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = futuresClient.NewSetServerTimeService().Do(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	return &Exchange{
+		key:           key,
+		secret:        secret,
+		Client:        client,
+		futuresClient: futuresClient,
+		// deliveryClient: deliveryClient,
 	}
 }
 
@@ -185,6 +202,7 @@ func (e *Exchange) QueryAveragePrice(ctx context.Context, symbol string) (float6
 func (e *Exchange) NewStream() types.Stream {
 	stream := NewStream(e.Client)
 	stream.MarginSettings = e.MarginSettings
+	stream.FuturesSettings = e.FuturesSettings
 	return stream
 }
 
